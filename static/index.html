@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GreenCycle — Line 3 Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --belt-black: #16181A;
+    --panel: #212426;
+    --hazard-yellow: #F5C518;
+    --paper-white: #EDEAE0;
+    --dim: #8A8F92;
+    --safe-green: #4C9A6A;
+    --contaminant-red: #D64545;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--belt-black); color: var(--paper-white); font-family: 'Inter', sans-serif; min-height: 100vh; }
+  .hazard-rule { height: 8px; background: repeating-linear-gradient(135deg, var(--hazard-yellow) 0 22px, var(--belt-black) 22px 44px); }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 22px 32px; border-bottom: 1px solid #33373a; }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand .mark { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 20px; color: var(--hazard-yellow); }
+  .brand .line { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--dim); letter-spacing: 0.08em; }
+  .status { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--dim); }
+  .status .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+  .status .dot.scanning { background: var(--hazard-yellow); box-shadow: 0 0 8px var(--hazard-yellow); animation: pulse 1s infinite; }
+  .status .dot.clear { background: var(--safe-green); box-shadow: 0 0 8px var(--safe-green); }
+  .status .dot.hazard { background: var(--contaminant-red); box-shadow: 0 0 8px var(--contaminant-red); animation: pulse 0.6s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  main { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; display: grid; grid-template-columns: 1fr; gap: 28px; }
+  @media (min-width: 820px) { main { grid-template-columns: 1fr 1fr; align-items: start; } }
+  .viewport-card { background: var(--panel); border: 1px dashed #4a4f52; border-radius: 2px; padding: 18px; }
+  .viewport-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--dim); margin-bottom: 12px; display: flex; justify-content: space-between; }
+  #dropzone { position: relative; height: 340px; border-radius: 2px; background: repeating-linear-gradient(90deg, #1c1f21 0px, #1c1f21 38px, #1a1d1f 38px, #1a1d1f 40px); display: flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; overflow: hidden; outline: 2px solid transparent; }
+  #dropzone.dragover { outline: 2px solid var(--hazard-yellow); }
+  #dropzone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .drop-prompt { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 15px; color: var(--dim); z-index: 2; pointer-events: none; }
+  .drop-prompt span { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 400; margin-top: 6px; color: #5c6164; }
+  .scanline { position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--hazard-yellow), transparent); box-shadow: 0 0 12px var(--hazard-yellow); opacity: 0; top: 0; }
+  .scanline.active { animation: sweep 0.9s ease-in-out; }
+  @keyframes sweep { 0% { top: 0%; opacity: 1; } 100% { top: 100%; opacity: 1; } }
+  #fileInput { display: none; }
+  .readout-card { background: var(--panel); border-radius: 2px; padding: 22px; min-height: 340px; display: flex; flex-direction: column; }
+  .readout-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--dim); margin-bottom: 18px; }
+  .predicted-class { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 34px; text-transform: uppercase; color: var(--paper-white); line-height: 1.1; min-height: 40px; }
+  .confidence { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--hazard-yellow); margin-top: 4px; margin-bottom: 20px; }
+  .bars { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .bar-row { display: grid; grid-template-columns: 78px 1fr 44px; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--dim); }
+  .bar-row .name { text-transform: uppercase; letter-spacing: 0.04em; }
+  .bar-track { height: 8px; background: #17191b; border-radius: 1px; overflow: hidden; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, #6b8f78, var(--hazard-yellow)); width: 0%; transition: width 0.5s ease; }
+  .bar-fill.top { background: linear-gradient(90deg, #b5910f, var(--hazard-yellow)); }
+  .bar-fill.hazard { background: linear-gradient(90deg, #7a2c2c, var(--contaminant-red)); }
+  .bar-row .pct { text-align: right; }
+  .hazard-banner { margin-top: 16px; padding: 12px 14px; background: rgba(214, 69, 69, 0.12); border: 1px solid var(--contaminant-red); border-radius: 2px; font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 13px; color: var(--contaminant-red); display: none; align-items: center; gap: 8px; animation: bannerPulse 1.4s infinite; }
+  .hazard-banner.show { display: flex; }
+  @keyframes bannerPulse { 0%,100% { border-color: var(--contaminant-red); } 50% { border-color: rgba(214,69,69,0.4); } }
+  .placeholder-note { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #52565a; margin-top: auto; }
+  footer { text-align: center; padding: 18px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #4a4e51; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="mark">GREENCYCLE</span>
+      <span class="line">LINE 3 — SORTING SCANNER</span>
+    </div>
+    <div class="status">
+      <span class="dot idle" id="statusDot"></span>
+      <span id="statusText">IDLE</span>
+    </div>
+  </header>
+  <div class="hazard-rule"></div>
+  <main>
+    <div class="viewport-card">
+      <div class="viewport-label"><span>CAMERA VIEWPORT</span><span id="fileMeta">NO ITEM LOADED</span></div>
+      <div id="dropzone">
+        <div class="scanline" id="scanline"></div>
+        <div class="drop-prompt" id="dropPrompt">DROP ITEM IMAGE HERE<span>or click to select a file</span></div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+    <div class="readout-card">
+      <div class="readout-label">CLASSIFICATION READOUT</div>
+      <div class="predicted-class" id="predictedClass">—</div>
+      <div class="confidence" id="confidenceText">awaiting item</div>
+      <div class="bars" id="bars"></div>
+      <div class="hazard-banner" id="hazardBanner">⚠ CONTAMINANT DETECTED — DIVERT FROM STREAM</div>
+      <div class="placeholder-note" id="placeholderNote">Connect an image to see live class probabilities from the model.</div>
+    </div>
+  </main>
+  <div class="hazard-rule"></div>
+  <footer>GREENCYCLE WASTE MANAGEMENT · MODEL: WASTENET-CNN · FASTAPI /predict</footer>
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const scanline = document.getElementById('scanline');
+const dropPrompt = document.getElementById('dropPrompt');
+const fileMeta = document.getElementById('fileMeta');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const predictedClass = document.getElementById('predictedClass');
+const confidenceText = document.getElementById('confidenceText');
+const barsEl = document.getElementById('bars');
+const hazardBanner = document.getElementById('hazardBanner');
+const placeholderNote = document.getElementById('placeholderNote');
+let previewImg = null;
+dropzone.addEventListener('click', () => fileInput.click());
+['dragenter', 'dragover'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('dragover'); }));
+['dragleave', 'drop'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('dragover'); }));
+dropzone.addEventListener('drop', e => { const file = e.dataTransfer.files[0]; if (file) handleFile(file); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+function setStatus(state, label) { statusDot.className = 'dot ' + state; statusText.textContent = label; }
+function handleFile(file) {
+  fileMeta.textContent = file.name.toUpperCase().slice(0, 28);
+  dropPrompt.style.display = 'none';
+  if (previewImg) previewImg.remove();
+  previewImg = document.createElement('img');
+  previewImg.src = URL.createObjectURL(file);
+  dropzone.prepend(previewImg);
+  setStatus('scanning', 'SCANNING');
+  scanline.classList.remove('active');
+  void scanline.offsetWidth;
+  scanline.classList.add('active');
+  predictedClass.textContent = '···';
+  confidenceText.textContent = 'processing frame';
+  hazardBanner.classList.remove('show');
+  placeholderNote.style.display = 'none';
+  const formData = new FormData();
+  formData.append('file', file);
+  fetch('/predict', { method: 'POST', body: formData })
+    .then(res => { if (!res.ok) throw new Error('Prediction failed'); return res.json(); })
+    .then(renderResult)
+    .catch(err => { setStatus('idle', 'ERROR'); predictedClass.textContent = 'SCAN FAILED'; confidenceText.textContent = err.message; });
+}
+function renderResult(data) {
+  setTimeout(() => {
+    predictedClass.textContent = data.predicted_class;
+    confidenceText.textContent = `CONFIDENCE ${(data.confidence * 100).toFixed(1)}%`;
+    const sorted = Object.entries(data.scores).sort((a, b) => b[1] - a[1]);
+    barsEl.innerHTML = '';
+    sorted.forEach(([name, score], i) => {
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      const isHazardClass = (name === 'battery');
+      row.innerHTML = `<span class="name">${name}</span><span class="bar-track"><span class="bar-fill ${i === 0 ? 'top' : ''} ${isHazardClass ? 'hazard' : ''}"></span></span><span class="pct">${(score * 100).toFixed(1)}%</span>`;
+      barsEl.appendChild(row);
+      requestAnimationFrame(() => { row.querySelector('.bar-fill').style.width = (score * 100) + '%'; });
+    });
+    if (data.hazard_flag) { setStatus('hazard', 'HAZARD'); hazardBanner.classList.add('show'); }
+    else { setStatus('clear', 'CLEAR'); hazardBanner.classList.remove('show'); }
+  }, 550);
+}
+</script>
+</body>
+</html>
